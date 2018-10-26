@@ -370,7 +370,7 @@ int main(int argc, char *argv[]) {
 
 	if (cmd.skip_initramfs) {
 		// Clear rootfs
-		excl_list = (char *[]) { "overlay", ".backup", "proc", "sys", "init.bak", "init.custom.rc", NULL };
+		excl_list = (char *[]) { "overlay", ".backup", "proc", "sys", "init.bak", "vold", "init.custom.rc", NULL };
 		frm_rf(root);
 	} else {
 		// Revert original init binary
