@@ -370,7 +370,7 @@ int main(int argc, char *argv[]) {
 
 	if (cmd.skip_initramfs) {
 		// Clear rootfs
-		excl_list = (char *[]) { "overlay", ".backup", "proc", "sys", "init.bak", NULL };
+		excl_list = (char *[]) { "overlay", ".backup", "proc", "sys", "init.bak", "init.custom.rc", NULL };
 		frm_rf(root);
 	} else {
 		// Revert original init binary
@@ -440,6 +440,12 @@ int main(int argc, char *argv[]) {
 				injected = 1;
 			} else {
 				xwrite(fd, "import /init.magisk.rc\n", 23);
+				injected = 1;
+			}
+			if (strstr(tok, "init.custom.rc")) {
+				injected = 1;
+			} else {
+				xwrite(fd, "import /init.custom.rc\n", 23);
 				injected = 1;
 			}
 		} else if (strstr(tok, "selinux.reload_policy")) {
