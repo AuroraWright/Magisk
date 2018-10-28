@@ -11,6 +11,10 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "vector.h"
 
 #define UID_SHELL  (get_shell_uid())
@@ -86,7 +90,6 @@ int is_num(const char *s);
 int exec_array(int err, int *fd, void (*setenv)(struct vector *), char *const *argv);
 int exec_command(int err, int *fd, void (*setenv)(struct vector*), const char *argv0, ...);
 int exec_command_sync(char *const argv0, ...);
-int bind_mount(const char *from, const char *to);
 int switch_mnt_ns(int pid);
 int fork_dont_care();
 void wait_till_exists(const char *target);
@@ -106,7 +109,7 @@ int __fsetxattr(int fd, const char *name, const void *value, size_t size, int fl
 #define align(p, a)     (((p) + (a) - 1) / (a) * (a))
 #define align_off(p, a) (align(p, a) - (p))
 
-extern char **excl_list;
+extern const char **excl_list;
 
 struct file_attr {
 	struct stat st;
@@ -139,5 +142,9 @@ void full_read(const char *filename, void **buf, size_t *size);
 void full_read_at(int dirfd, const char *filename, void **buf, size_t *size);
 void stream_full_read(int fd, void **buf, size_t *size);
 void write_zero(int fd, size_t size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
