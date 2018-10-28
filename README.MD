@@ -23,6 +23,13 @@ Furthermore, Magisk provides a **Systemless Interface** to alter the system (or 
 4. Run `build.py` with argument `-h` to see the built-in help message. The `-h` option also works for each supported actions, e.g. `./build.py binary -h`
 5. By default, `build.py` build binaries and Magisk Manager in debug mode. If you want to build Magisk Manager in release mode (via the `-r, --release` flag), you need a Java Keystore file `release-key.jks` (only `JKS` format is supported) to sign APKs and zips. For more information, check out [Google's Official Documentation](https://developer.android.com/studio/publish/app-signing.html#signing-manually).
 
+## Building with the official signed stub apk
+1. run ``cd native && ./gen_stub.py``.
+2. run ``./build.py -r stub`` at the root of this project.
+3. mv ``native/binaries.h`` to ``native/out/binaries.h``.
+4. run ``./build.py -r binary`` compile magiskinit.
+5. the stub.apk is from official 17.1. so after a factory reset, you can download and install the full Magisk Manager without signature issue anymore.
+
 ## License
 
 ```
