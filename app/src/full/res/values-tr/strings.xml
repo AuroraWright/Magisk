@@ -90,10 +90,10 @@
     <string name="manager_download_install">İndirmek ve yüklemek için dokunun</string>
     <string name="dtbo_patched_title">DTBO yamalandı!</string>
     <string name="dtbo_patched_reboot">Magisk Manager dtbo.img\'yi yamaladı, lütfen yeniden başlatın</string>
-    <string name="magisk_updates">Magisk Güncellemeleri</string>
+    <string name="update_channel">Magisk Güncellemeleri</string>
     <string name="flashing">Yükleniyor</string>
-    <string name="hide_manager_toast">Magisk Manager Gizleniyor…</string>
-    <string name="hide_manager_toast2">Bu biraz zaman alabilir…</string>
+    <string name="hide_manager_title">Magisk Manager Gizleniyor…</string>
+    <string name="hide_manager_msg">Bu biraz zaman alabilir…</string>
     <string name="hide_manager_fail_toast">Magisk Manager\'ı Gizleme başarısız oldu…</string>
     <string name="open_link_failed_toast">Bağlantıyı açabilecek uygulama bulunamadı…</string>
     <string name="download_zip_only">Yalnızca Zip Dosyasını İndir</string>
@@ -119,7 +119,10 @@
     <string name="env_fix_msg">Cihazınızın Magisk\'in düzgün çalışması için ek kuruluma ihtiyacı var. Bu Magisk kurulum zip dosyasını indirecektir, şimdi devam etmek istiyor musunuz?</string>
     <string name="setup_title">Ek Kurulum</string>
     <string name="setup_msg">Ortam Kurulumu Çalışıyor…</string>
-    
+    <string name="download_file_error">Dosya indirme hatası</string>
+    <string name="downloading_toast">%1$s indiriliyor</string>
+    <string name="no_rw_storage">Bu özellik harici depolamaya yazma izni olmadan çalışmaz.</string>
+
     <!--Settings Activity -->
     <string name="settings_general_category">Genel</string>
     <string name="settings_dark_theme_title">Karanlık Tema</string>
@@ -143,7 +146,7 @@
     <string name="settings_boot_format_title">Yamalı Önyükleme Formatı</string>
     <string name="settings_boot_format_summary">Yamalı önyükleme imaj dosyasının formatını seçin\nFastboot/download modunda yüklemek için .img seçeneğini seçin; ODIN ile yüklemek için .img.tar\'ı seçin.</string>
     <string name="settings_core_only_title">Magisk Sadece Çekirdek Modu</string>
-    <string name="settings_core_only_summary">Sadece temel özellikleri etkinleştirin, tüm modüller yüklenmez. MagiskSU, MagiskHide ve host yine de etkinleştirilecektir</string>
+    <string name="settings_core_only_summary">Sadece temel özellikleri etkinleştirin, tüm modüller yüklenmez. MagiskSU ve MagiskHide yine de etkinleştirilecektir</string>
     <string name="settings_magiskhide_summary">"Magisk\'i çeşitli algılamalardan gizle"</string>
     <string name="settings_hosts_title">Sistemsiz host</string>
     <string name="settings_hosts_summary">Reklam engelleme uygulamaları için sistemsiz host desteği</string>
@@ -153,8 +156,10 @@
     <string name="settings_su_adb">Sadece ADB</string>
     <string name="settings_su_disable">Devre dışı</string>
     <string name="settings_su_request_10">10 saniye</string>
+    <string name="settings_su_request_15">15 saniye</string>
     <string name="settings_su_request_20">20 saniye</string>
     <string name="settings_su_request_30">30 saniye</string>
+    <string name="settings_su_request_45">45 saniye</string>
     <string name="settings_su_request_60">60 saniye</string>
     <string name="superuser_access">Yetkili Kullanıcı Erişimi</string>
     <string name="auto_response">Otomatik Yanıt</string>

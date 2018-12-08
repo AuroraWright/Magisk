@@ -47,20 +47,11 @@
         <!-- Superuser -->
 
         <activity
-            android:name="a.p"
+            android:name="a.m"
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
             android:taskAffinity="internal.superuser"
             android:theme="@style/SuRequest" />
-
-        <activity
-            android:name=".superuser.RequestActivity"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTask"
-            android:taskAffinity="internal.superuser"
-            android:theme="@style/AppTheme.Translucent" />
-
-        <receiver android:name=".superuser.SuReceiver" />
 
         <!-- Receiver -->
 
@@ -68,17 +59,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
-        </receiver>
-        <receiver android:name="a.i">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />
                 <data android:scheme="package" />
             </intent-filter>
         </receiver>
-        <receiver android:name="a.j" />
-        <receiver android:name="a.k" />
-        <receiver android:name="a.l">
+        <receiver android:name="a.i">
             <intent-filter>
                 <action android:name="android.intent.action.LOCALE_CHANGED" />
             </intent-filter>
@@ -87,11 +74,11 @@
         <!-- Service -->
 
         <service
-            android:name="a.m"
+            android:name="a.j"
             android:exported="true"
             android:permission="android.permission.BIND_JOB_SERVICE" />
         <service
-            android:name="a.n"
+            android:name="a.k"
             android:exported="true"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 

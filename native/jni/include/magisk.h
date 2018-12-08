@@ -12,14 +12,12 @@
 #define LOGFILE         "/cache/magisk.log"
 #define UNBLOCKFILE     "/dev/.magisk.unblock"
 #define DISABLEFILE     "/cache/.disable_magisk"
-#define MAGISKTMP       "/sbin/.core"
+#define MAGISKTMP       "/sbin/.magisk"
 #define BLOCKDIR        MAGISKTMP "/block"
 #define MIRRDIR         MAGISKTMP "/mirror"
 #define BBPATH          MAGISKTMP "/busybox"
 #define MOUNTPOINT      MAGISKTMP "/img"
-#define COREDIR         MOUNTPOINT "/.core"
-#define HOSTSFILE       COREDIR "/hosts"
-#define HIDELIST        COREDIR "/hidelist"
+#define LEGACY_CORE     MOUNTPOINT "/.core"
 #define SECURE_DIR      "/data/adb"
 #define MAINIMG         SECURE_DIR "/magisk.img"
 #define DATABIN         SECURE_DIR "/magisk"
@@ -42,10 +40,8 @@
 
 extern char *argv0;     /* For changing process name */
 
-#define applet_names    ((char *[]) { "magisk", "su", "resetprop", "magiskhide", "imgtool", NULL })
-#define init_applet     ((char *[]) { "magiskpolicy", "supolicy", NULL })
-
-extern int (*applet_main[]) (int, char *[]), (*init_applet_main[]) (int, char *[]);
+#define applet_names ((const char *[]) { "magisk", "su", "resetprop", "magiskhide", "imgtool", nullptr })
+#define init_applet  ((const char *[]) { "magiskpolicy", "supolicy", nullptr })
 
 // Multi-call entrypoints
 int magisk_main(int argc, char *argv[]);

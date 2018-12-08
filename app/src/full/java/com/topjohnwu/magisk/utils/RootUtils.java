@@ -21,29 +21,17 @@ public class RootUtils extends Shell.Initializer {
         BusyBox.BB_PATH = new File(Const.BUSYBOX_PATH);
     }
 
-    public static void uninstallPkg(String pkg) {
-        Shell.su("db_clean " + Const.USER_ID, "pm uninstall " + pkg).exec();
+    public static void rmAndLaunch(String rm, String launch) {
+        Shell.su(Utils.fmt("(rm_launch %d %s %s)&", Const.USER_ID, rm, launch)).exec();
     }
 
     @Override
     public boolean onInit(Context context, @NonNull Shell shell) {
         Shell.Job job = shell.newJob();
         if (shell.isRoot()) {
-            InputStream magiskUtils = context.getResources().openRawResource(R.raw.util_functions);
-            InputStream managerUtils = context.getResources().openRawResource(R.raw.utils);
-            job.add(magiskUtils).add(managerUtils);
-
+            job.add(context.getResources().openRawResource(R.raw.util_functions))
+                .add(context.getResources().openRawResource(R.raw.utils));
             Const.MAGISK_DISABLE_FILE = new SuFile("/cache/.disable_magisk");
-            SuFile file = new SuFile("/sbin/.core/img");
-            if (file.exists()) {
-                Const.MAGISK_PATH = file;
-            } else if ((file = new SuFile("/dev/magisk/img")).exists()) {
-                Const.MAGISK_PATH = file;
-            } else {
-                Const.MAGISK_PATH = new SuFile("/magisk");
-            }
-            Const.MAGISK_HOST_FILE = new SuFile(Const.MAGISK_PATH + "/.core/hosts");
-
             Data.loadMagiskInfo();
         } else {
             InputStream nonroot = context.getResources().openRawResource(R.raw.nonroot_utils);

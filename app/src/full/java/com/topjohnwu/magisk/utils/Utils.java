@@ -16,18 +16,19 @@ import android.os.AsyncTask;
 import android.provider.OpenableColumns;
 import android.widget.Toast;
 
+import com.androidnetworking.AndroidNetworking;
 import com.topjohnwu.magisk.Const;
 import com.topjohnwu.magisk.Data;
 import com.topjohnwu.magisk.MagiskManager;
 import com.topjohnwu.magisk.R;
 import com.topjohnwu.magisk.container.Module;
 import com.topjohnwu.magisk.container.ValueSortedMap;
+import com.topjohnwu.magisk.services.UpdateCheckService;
+import com.topjohnwu.superuser.Shell;
 import com.topjohnwu.superuser.io.SuFile;
 
 import java.util.Locale;
 import java.util.Map;
-
-import a.n;
 
 public class Utils {
 
@@ -82,7 +83,7 @@ public class Utils {
         if (mm.prefs.getBoolean(Const.Key.CHECK_UPDATES, true)) {
             if (scheduler.getAllPendingJobs().isEmpty() ||
                     Const.UPDATE_SERVICE_VER > mm.prefs.getInt(Const.Key.UPDATE_SERVICE_VER, -1)) {
-                ComponentName service = new ComponentName(mm, n.class);
+                ComponentName service = new ComponentName(mm, Data.classMap.get(UpdateCheckService.class));
                 JobInfo info = new JobInfo.Builder(Const.ID.UPDATE_SERVICE_ID, service)
                         .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                         .setPersisted(true)
@@ -118,10 +119,11 @@ public class Utils {
         AsyncTask.THREAD_POOL_EXECUTOR.execute(() -> {
             Map<String, Module> moduleMap = new ValueSortedMap<>();
             SuFile path = new SuFile(Const.MAGISK_PATH);
-            String[] modules = path.list(
+            SuFile[] modules = path.listFiles(
                     (file, name) -> !name.equals("lost+found") && !name.equals(".core"));
-            for (String name : modules) {
-                Module module = new Module(Const.MAGISK_PATH + "/" + name);
+            for (SuFile file : modules) {
+                if (file.isFile()) continue;
+                Module module = new Module(Const.MAGISK_PATH + "/" + file.getName());
                 moduleMap.put(module.getId(), module);
             }
             Topic.publish(Topic.MODULE_LOAD_DONE, moduleMap);
@@ -139,5 +141,18 @@ public class Utils {
             }
         } catch (Exception ignored) {}
         return info.loadLabel(pm).toString();
+    }
+
+    public static boolean showSuperUser() {
+        if (Data.multiuserState < 0)
+            Data.multiuserState = Data.MM().mDB.getSettings(Const.Key.SU_MULTIUSER_MODE,
+                    Const.Value.MULTIUSER_MODE_OWNER_ONLY);
+        return Shell.rootAccess() && (Const.USER_ID == 0 ||
+                Data.multiuserState != Const.Value.MULTIUSER_MODE_OWNER_MANAGED);
+    }
+
+    public static String dlString(String url) {
+        String s = (String) AndroidNetworking.get(url).build().executeForString().getResult();
+        return s == null ? "" : s;
     }
 }

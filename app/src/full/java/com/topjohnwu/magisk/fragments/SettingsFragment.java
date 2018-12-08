@@ -1,9 +1,7 @@
 package com.topjohnwu.magisk.fragments;
 
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -12,21 +10,20 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.topjohnwu.magisk.BuildConfig;
 import com.topjohnwu.magisk.Const;
 import com.topjohnwu.magisk.Data;
 import com.topjohnwu.magisk.MagiskManager;
 import com.topjohnwu.magisk.R;
 import com.topjohnwu.magisk.asyncs.CheckUpdates;
 import com.topjohnwu.magisk.asyncs.PatchAPK;
-import com.topjohnwu.magisk.receivers.DownloadReceiver;
+import com.topjohnwu.magisk.utils.DlInstallManager;
 import com.topjohnwu.magisk.utils.Download;
 import com.topjohnwu.magisk.utils.FingerprintHelper;
 import com.topjohnwu.magisk.utils.LocaleManager;
-import com.topjohnwu.magisk.utils.RootUtils;
 import com.topjohnwu.magisk.utils.Topic;
 import com.topjohnwu.magisk.utils.Utils;
 import com.topjohnwu.superuser.Shell;
-import com.topjohnwu.superuser.ShellUtils;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -46,38 +43,68 @@ public class SettingsFragment extends PreferenceFragmentCompat
         implements SharedPreferences.OnSharedPreferenceChangeListener,
         Topic.Subscriber, Topic.AutoSubscriber {
 
-    private PreferenceScreen prefScreen;
-
-    private ListPreference updateChannel, suAccess, autoRes, suNotification,
-            requestTimeout, multiuserMode, namespaceMode;
     private MagiskManager mm;
-    private PreferenceCategory generalCatagory;
+
+    private ListPreference updateChannel, autoRes, suNotification,
+            requestTimeout, rootConfig, multiuserConfig, nsConfig;
+
+    private int rootState, namespaceState;
+    private boolean showSuperuser;
+
+    private void prefsSync() {
+        rootState = mm.mDB.getSettings(Const.Key.ROOT_ACCESS, Const.Value.ROOT_ACCESS_APPS_AND_ADB);
+        namespaceState = mm.mDB.getSettings(Const.Key.SU_MNT_NS, Const.Value.NAMESPACE_MODE_REQUESTER);
+        showSuperuser = Utils.showSuperUser();
+        mm.prefs.edit()
+                .putString(Const.Key.ROOT_ACCESS, String.valueOf(rootState))
+                .putString(Const.Key.SU_MNT_NS, String.valueOf(namespaceState))
+                .putString(Const.Key.SU_MULTIUSER_MODE, String.valueOf(Data.multiuserState))
+                .putBoolean(Const.Key.SU_FINGERPRINT, FingerprintHelper.useFingerPrint())
+                .apply();
+    }
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        setPreferencesFromResource(R.xml.app_settings, rootKey);
         mm = Data.MM();
-        prefScreen = getPreferenceScreen();
+        prefsSync();
 
-        generalCatagory = (PreferenceCategory) findPreference("general");
+        setPreferencesFromResource(R.xml.app_settings, rootKey);
+
+        PreferenceScreen prefScreen = getPreferenceScreen();
+
+        PreferenceCategory generalCatagory = (PreferenceCategory) findPreference("general");
         PreferenceCategory magiskCategory = (PreferenceCategory) findPreference("magisk");
         PreferenceCategory suCategory = (PreferenceCategory) findPreference("superuser");
         Preference hideManager = findPreference("hide");
+        hideManager.setOnPreferenceClickListener(pref -> {
+            PatchAPK.hideManager();
+            return true;
+        });
         Preference restoreManager = findPreference("restore");
-        findPreference("clear").setOnPreferenceClickListener((pref) -> {
+        restoreManager.setOnPreferenceClickListener(pref -> {
+            DlInstallManager.restore();
+            return true;
+        });
+        findPreference("clear").setOnPreferenceClickListener(pref -> {
             mm.prefs.edit().remove(Const.Key.ETAG_KEY).apply();
             mm.repoDB.clearRepo();
             Utils.toast(R.string.repo_cache_cleared, Toast.LENGTH_SHORT);
             return true;
         });
+        findPreference("hosts").setOnPreferenceClickListener(pref -> {
+            Shell.su("add_hosts_module").exec();
+            Utils.loadModules();
+            Utils.toast(R.string.settings_hosts_toast, Toast.LENGTH_SHORT);
+            return true;
+        });
 
         updateChannel = (ListPreference) findPreference(Const.Key.UPDATE_CHANNEL);
-        suAccess = (ListPreference) findPreference(Const.Key.ROOT_ACCESS);
+        rootConfig = (ListPreference) findPreference(Const.Key.ROOT_ACCESS);
         autoRes = (ListPreference) findPreference(Const.Key.SU_AUTO_RESPONSE);
         requestTimeout = (ListPreference) findPreference(Const.Key.SU_REQUEST_TIMEOUT);
         suNotification = (ListPreference) findPreference(Const.Key.SU_NOTIFICATION);
-        multiuserMode = (ListPreference) findPreference(Const.Key.SU_MULTIUSER_MODE);
-        namespaceMode = (ListPreference) findPreference(Const.Key.SU_MNT_NS);
+        multiuserConfig = (ListPreference) findPreference(Const.Key.SU_MULTIUSER_MODE);
+        nsConfig = (ListPreference) findPreference(Const.Key.SU_MNT_NS);
         SwitchPreference reauth = (SwitchPreference) findPreference(Const.Key.SU_REAUTH);
         SwitchPreference fingerprint = (SwitchPreference) findPreference(Const.Key.SU_FINGERPRINT);
 
@@ -107,7 +134,7 @@ public class SettingsFragment extends PreferenceFragmentCompat
 
         // Disable dangerous settings in secondary user
         if (Const.USER_ID > 0) {
-            suCategory.removePreference(multiuserMode);
+            suCategory.removePreference(multiuserConfig);
         }
 
         // Disable re-authentication option on Android O, it will not work
@@ -124,38 +151,12 @@ public class SettingsFragment extends PreferenceFragmentCompat
             fingerprint.setSummary(R.string.disable_fingerprint);
         }
 
-        if (Shell.rootAccess()) {
-            if (mm.getPackageName().equals(Const.ORIG_PKG_NAME)) {
-                hideManager.setOnPreferenceClickListener((pref) -> {
-                    PatchAPK.hideManager(requireActivity());
-                    return true;
-                });
+        if (Shell.rootAccess() && Const.USER_ID == 0) {
+            if (mm.getPackageName().equals(BuildConfig.APPLICATION_ID)) {
                 generalCatagory.removePreference(restoreManager);
             } else {
-                if (Download.checkNetworkStatus(mm)) {
-                    restoreManager.setOnPreferenceClickListener((pref) -> {
-                        Download.receive(
-                            requireActivity(), new DownloadReceiver() {
-                                @Override
-                                public void onDownloadDone(Context context, Uri uri) {
-                                    Data.exportPrefs();
-                                    Shell.su("cp " + uri.getPath() + " /data/local/tmp/manager.apk").exec();
-                                    if (ShellUtils.fastCmdResult("pm install /data/local/tmp/manager.apk")) {
-                                        Shell.su("rm -f /data/local/tmp/manager.apk").exec();
-                                        RootUtils.uninstallPkg(context.getPackageName());
-                                        return;
-                                    }
-                                    Shell.su("rm -f /data/local/tmp/manager.apk").exec();
-                                }
-                            },
-                            Data.managerLink,
-                            Utils.fmt("MagiskManager-v%s.apk", Data.remoteManagerVersionString)
-                        );
-                        return true;
-                    });
-                } else {
+                if (!Download.checkNetworkStatus(mm))
                     generalCatagory.removePreference(restoreManager);
-                }
                 generalCatagory.removePreference(hideManager);
             }
         } else {
@@ -163,8 +164,7 @@ public class SettingsFragment extends PreferenceFragmentCompat
             generalCatagory.removePreference(hideManager);
         }
 
-        if (!Shell.rootAccess() || (Const.USER_ID > 0 &&
-                Data.multiuserMode == Const.Value.MULTIUSER_MODE_OWNER_MANAGED)) {
+        if (!showSuperuser) {
             prefScreen.removePreference(suCategory);
         }
 
@@ -213,9 +213,16 @@ public class SettingsFragment extends PreferenceFragmentCompat
                 mm.mDB.setSettings(key, Utils.getPrefsInt(prefs, key));
                 break;
         }
-        Data.loadConfig();
-        setSummary();
         switch (key) {
+            case Const.Key.ROOT_ACCESS:
+                rootState = Utils.getPrefsInt(prefs, key);
+                break;
+            case Const.Key.SU_MULTIUSER_MODE:
+                Data.multiuserState = Utils.getPrefsInt(prefs, key);
+                break;
+            case Const.Key.SU_MNT_NS:
+                namespaceState = Utils.getPrefsInt(prefs, key);
+                break;
             case Const.Key.DARK_THEME:
                 requireActivity().recreate();
                 break;
@@ -236,17 +243,6 @@ public class SettingsFragment extends PreferenceFragmentCompat
                     Shell.su("magiskhide --disable").submit();
                 }
                 break;
-            case Const.Key.HOSTS:
-                if (prefs.getBoolean(key, false)) {
-                    Shell.su("cp -af /system/etc/hosts " + Const.MAGISK_HOST_FILE,
-                            "mount -o bind " + Const.MAGISK_HOST_FILE + " /system/etc/hosts")
-                            .submit();
-                } else {
-                    Shell.su("umount -l /system/etc/hosts",
-                            "rm -f " + Const.MAGISK_HOST_FILE)
-                            .submit();
-                }
-                break;
             case Const.Key.LOCALE:
                 LocaleManager.setLocale(mm);
                 requireActivity().recreate();
@@ -259,6 +255,8 @@ public class SettingsFragment extends PreferenceFragmentCompat
                 Utils.setupUpdateCheck();
                 break;
         }
+        Data.loadConfig();
+        setSummary();
     }
 
     @Override
@@ -270,7 +268,6 @@ public class SettingsFragment extends PreferenceFragmentCompat
                 ((SwitchPreference) preference).setChecked(!checked);
                 FingerprintHelper.showAuthDialog(requireActivity(), () -> {
                     ((SwitchPreference) preference).setChecked(checked);
-                    Data.suFingerprint = checked;
                     mm.mDB.setSettings(key, checked ? 1 : 0);
                 });
                 break;
@@ -281,8 +278,8 @@ public class SettingsFragment extends PreferenceFragmentCompat
     private void setSummary() {
         updateChannel.setSummary(getResources()
                 .getStringArray(R.array.update_channel)[Data.updateChannel]);
-        suAccess.setSummary(getResources()
-                .getStringArray(R.array.su_access)[Data.suAccessState]);
+        rootConfig.setSummary(getResources()
+                .getStringArray(R.array.su_access)[rootState]);
         autoRes.setSummary(getResources()
                 .getStringArray(R.array.auto_response)[Data.suResponseType]);
         suNotification.setSummary(getResources()
@@ -290,10 +287,10 @@ public class SettingsFragment extends PreferenceFragmentCompat
         requestTimeout.setSummary(
                 getString(R.string.request_timeout_summary,
                         mm.prefs.getString(Const.Key.SU_REQUEST_TIMEOUT, "10")));
-        multiuserMode.setSummary(getResources()
-                .getStringArray(R.array.multiuser_summary)[Data.multiuserMode]);
-        namespaceMode.setSummary(getResources()
-                .getStringArray(R.array.namespace_summary)[Data.suNamespaceMode]);
+        multiuserConfig.setSummary(getResources()
+                .getStringArray(R.array.multiuser_summary)[Data.multiuserState]);
+        nsConfig.setSummary(getResources()
+                .getStringArray(R.array.namespace_summary)[namespaceState]);
     }
 
     @Override

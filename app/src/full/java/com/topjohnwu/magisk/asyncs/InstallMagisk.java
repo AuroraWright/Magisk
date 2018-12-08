@@ -14,7 +14,6 @@ import com.topjohnwu.magisk.FlashActivity;
 import com.topjohnwu.magisk.MagiskManager;
 import com.topjohnwu.magisk.R;
 import com.topjohnwu.magisk.container.TarEntry;
-import com.topjohnwu.magisk.utils.Download;
 import com.topjohnwu.magisk.utils.Utils;
 import com.topjohnwu.magisk.utils.WebService;
 import com.topjohnwu.magisk.utils.ZipUtils;
@@ -136,7 +135,7 @@ public class InstallMagisk extends ParallelTask<Void, Void, Boolean> {
 
         if (!ShellUtils.checkSum("MD5", zip, Data.magiskMD5)) {
             console.add("- Downloading zip");
-            HttpURLConnection conn = WebService.mustRequest(Data.magiskLink, null);
+            HttpURLConnection conn = WebService.mustRequest(Data.magiskLink);
             buf = new BufferedInputStream(new ProgressStream(conn), conn.getContentLength());
             buf.mark(conn.getContentLength() + 1);
             try (OutputStream out = new FileOutputStream(zip)) {
@@ -243,7 +242,7 @@ public class InstallMagisk extends ParallelTask<Void, Void, Boolean> {
         switch (mode) {
             case PATCH_MODE:
                 String fmt = mm.prefs.getString(Const.Key.BOOT_FORMAT, ".img");
-                File dest = new File(Download.EXTERNAL_PATH, "patched_boot" + fmt);
+                File dest = new File(Const.EXTERNAL_PATH, "patched_boot" + fmt);
                 dest.getParentFile().mkdirs();
                 OutputStream out;
                 switch (fmt) {
@@ -343,18 +342,7 @@ public class InstallMagisk extends ParallelTask<Void, Void, Boolean> {
             console.add("- Target image: " + mBoot);
 
         List<String> abis = Arrays.asList(Build.SUPPORTED_ABIS);
-        String arch;
-
-        if (Data.remoteMagiskVersionCode >= Const.MAGISK_VER.SEPOL_REFACTOR) {
-            // 32-bit only
-            if (abis.contains("x86")) arch = "x86";
-            else arch = "arm";
-        } else {
-            if (abis.contains("x86_64")) arch = "x64";
-            else if (abis.contains("arm64-v8a")) arch = "arm64";
-            else if (abis.contains("x86")) arch = "x86";
-            else arch = "arm";
-        }
+        String arch = abis.contains("x86") ? "x86" : "arm";
 
         console.add("- Device platform: " + Build.SUPPORTED_ABIS[0]);
 

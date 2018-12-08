@@ -6,14 +6,10 @@ import android.os.Looper;
 import android.util.Xml;
 
 import com.topjohnwu.magisk.components.AboutCardRow;
-import com.topjohnwu.magisk.receivers.BootReceiver;
-import com.topjohnwu.magisk.receivers.ManagerUpdate;
-import com.topjohnwu.magisk.receivers.PackageReceiver;
-import com.topjohnwu.magisk.receivers.RebootReceiver;
+import com.topjohnwu.magisk.receivers.GeneralReceiver;
 import com.topjohnwu.magisk.receivers.ShortcutReceiver;
 import com.topjohnwu.magisk.services.OnBootService;
 import com.topjohnwu.magisk.services.UpdateCheckService;
-import com.topjohnwu.magisk.utils.FingerprintHelper;
 import com.topjohnwu.magisk.utils.Utils;
 import com.topjohnwu.superuser.Shell;
 import com.topjohnwu.superuser.ShellUtils;
@@ -51,8 +47,6 @@ public class Data {
     public static String managerLink;
     public static String managerNoteLink;
     public static String uninstallerLink;
-    public static int snetVersionCode;
-    public static String snetLink;
 
     // Install flags
     public static boolean keepVerity = false;
@@ -62,12 +56,9 @@ public class Data {
     public static boolean isDarkTheme;
     public static int suRequestTimeout;
     public static int suLogTimeout = 14;
-    public static int suAccessState;
-    public static boolean suFingerprint;
-    public static int multiuserMode;
+    public static int multiuserState = -1;
     public static int suResponseType;
     public static int suNotificationType;
-    public static int suNamespaceMode;
     public static int updateChannel;
     public static int repoOrder;
 
@@ -79,15 +70,12 @@ public class Data {
         classMap.put(DonationActivity.class, a.e.class);
         classMap.put(FlashActivity.class, a.f.class);
         classMap.put(NoUIActivity.class, a.g.class);
-        classMap.put(BootReceiver.class, a.h.class);
-        classMap.put(PackageReceiver.class, a.i.class);
-        classMap.put(ManagerUpdate.class, a.j.class);
-        classMap.put(RebootReceiver.class, a.k.class);
-        classMap.put(ShortcutReceiver.class, a.l.class);
-        classMap.put(OnBootService.class, a.m.class);
-        classMap.put(UpdateCheckService.class, a.n.class);
-        classMap.put(AboutCardRow.class, a.o.class);
-        classMap.put(SuRequestActivity.class, a.p.class);
+        classMap.put(GeneralReceiver.class, a.h.class);
+        classMap.put(ShortcutReceiver.class, a.i.class);
+        classMap.put(OnBootService.class, a.j.class);
+        classMap.put(UpdateCheckService.class, a.k.class);
+        classMap.put(AboutCardRow.class, a.l.class);
+        classMap.put(SuRequestActivity.class, a.m.class);
 
     }
 
@@ -95,8 +83,7 @@ public class Data {
         try {
             magiskVersionString = ShellUtils.fastCmd("magisk -v").split(":")[0];
             magiskVersionCode = Integer.parseInt(ShellUtils.fastCmd("magisk -V"));
-            String s = ShellUtils.fastCmd(("resetprop -p ") + Const.MAGISKHIDE_PROP);
-            magiskHide = s.isEmpty() || Integer.parseInt(s) != 0;
+            magiskHide = Shell.su("magiskhide --status").exec().isSuccess();
         } catch (NumberFormatException ignored) {}
     }
 
@@ -110,12 +97,12 @@ public class Data {
         mm.prefs.edit().commit();
         File xml = new File(mm.getFilesDir().getParent() + "/shared_prefs",
                 mm.getPackageName() + "_preferences.xml");
-        Shell.su(Utils.fmt("for usr in /data/user/*; do cat %s > ${usr}/%s; done", xml, Const.MANAGER_CONFIGS)).exec();
+        Shell.su(Utils.fmt("cat %s > /data/user/0/%s", xml, Const.MANAGER_CONFIGS)).exec();
     }
 
     public static void importPrefs() {
         MagiskManager mm = MM();
-        SuFile config = new SuFile(Utils.fmt("/data/user/%d/%s", Const.USER_ID, Const.MANAGER_CONFIGS));
+        SuFile config = new SuFile("/data/user/0/" + Const.MANAGER_CONFIGS);
         if (config.exists()) {
             SharedPreferences.Editor editor = mm.prefs.edit();
             try {
@@ -180,15 +167,6 @@ public class Data {
         suRequestTimeout = Utils.getPrefsInt(mm.prefs, Const.Key.SU_REQUEST_TIMEOUT, Const.Value.timeoutList[2]);
         suResponseType = Utils.getPrefsInt(mm.prefs, Const.Key.SU_AUTO_RESPONSE, Const.Value.SU_PROMPT);
         suNotificationType = Utils.getPrefsInt(mm.prefs, Const.Key.SU_NOTIFICATION, Const.Value.NOTIFICATION_TOAST);
-        suAccessState = mm.mDB.getSettings(Const.Key.ROOT_ACCESS, Const.Value.ROOT_ACCESS_APPS_AND_ADB);
-        multiuserMode = mm.mDB.getSettings(Const.Key.SU_MULTIUSER_MODE, Const.Value.MULTIUSER_MODE_OWNER_ONLY);
-        suNamespaceMode = mm.mDB.getSettings(Const.Key.SU_MNT_NS, Const.Value.NAMESPACE_MODE_REQUESTER);
-        suFingerprint = mm.mDB.getSettings(Const.Key.SU_FINGERPRINT, 0) != 0;
-        if (suFingerprint && !FingerprintHelper.canUseFingerprint()) {
-            // User revoked the fingerprint
-            mm.mDB.setSettings(Const.Key.SU_FINGERPRINT, 0);
-            suFingerprint = false;
-        }
 
         // config
         isDarkTheme = mm.prefs.getBoolean(Const.Key.DARK_THEME, false);
@@ -200,15 +178,10 @@ public class Data {
         MM().prefs.edit()
                 .putBoolean(Const.Key.DARK_THEME, isDarkTheme)
                 .putBoolean(Const.Key.MAGISKHIDE, magiskHide)
-                .putBoolean(Const.Key.HOSTS, Const.MAGISK_HOST_FILE.exists())
                 .putBoolean(Const.Key.COREONLY, Const.MAGISK_DISABLE_FILE.exists())
-                .putBoolean(Const.Key.SU_FINGERPRINT, suFingerprint)
                 .putString(Const.Key.SU_REQUEST_TIMEOUT, String.valueOf(suRequestTimeout))
                 .putString(Const.Key.SU_AUTO_RESPONSE, String.valueOf(suResponseType))
                 .putString(Const.Key.SU_NOTIFICATION, String.valueOf(suNotificationType))
-                .putString(Const.Key.ROOT_ACCESS, String.valueOf(suAccessState))
-                .putString(Const.Key.SU_MULTIUSER_MODE, String.valueOf(multiuserMode))
-                .putString(Const.Key.SU_MNT_NS, String.valueOf(suNamespaceMode))
                 .putString(Const.Key.UPDATE_CHANNEL, String.valueOf(updateChannel))
                 .putInt(Const.Key.UPDATE_SERVICE_VER, Const.UPDATE_SERVICE_VER)
                 .putInt(Const.Key.REPO_ORDER, repoOrder)

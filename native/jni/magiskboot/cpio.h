@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-#include "array.h"
+#include "Vector.h"
+#include "CharArray.h"
 
 struct cpio_newc_header {
 	char magic[6];
@@ -36,7 +37,8 @@ struct cpio_entry {
 	// uint32_t rdevminor;
 	// uint32_t namesize;
 	// uint32_t check;
-	char *filename = nullptr;
+//	char *filename = nullptr;
+	CharArray filename;
 	void *data = nullptr;
 
 	cpio_entry() {}
@@ -51,18 +53,18 @@ public:
 	void dump(const char *file);
 	int find(const char *name);
 	void insert(cpio_entry *e);
-	void rm(int recur, const char *name);
+	void rm(const char *name, bool r = false);
 	void makedir(mode_t mode, const char *name);
 	void ln(const char *target, const char *name);
 	void add(mode_t mode, const char *name, const char *file);
-	void insert(Array<cpio_entry *> &arr);
+	void insert(Vector<cpio_entry *> &arr);
 	bool mv(const char *from, const char *to);
 	void extract();
 	bool extract(const char *name, const char *file);
 	void sort();
 
 protected:
-	Array<cpio_entry *> arr;
+	Vector<cpio_entry *> arr;
 };
 
 #endif

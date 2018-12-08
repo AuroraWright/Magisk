@@ -15,10 +15,10 @@ $BOOTMODE || ps | grep zygote | grep -qv grep && BOOTMODE=true
 $BOOTMODE || ps -A | grep zygote | grep -qv grep && BOOTMODE=true
 
 # Presets
+MAGISKTMP=/sbin/.magisk
 [ -z $NVBASE ] && NVBASE=/data/adb
 [ -z $MAGISKBIN ] && MAGISKBIN=$NVBASE/magisk
 [ -z $IMG ] && IMG=$NVBASE/magisk.img
-[ -z $MOUNTPATH ] && MOUNTPATH=/sbin/.core/img
 
 # Bootsigner related stuff
 BOOTSIGNERCLASS=a.a
@@ -139,7 +139,7 @@ get_flags() {
 
 grep_cmdline() {
   local REGEX="s/^$1=//p"
-  sed -E 's/ +/\n/g' /proc/cmdline | sed -n "$REGEX" 2>/dev/null
+  cat /proc/cmdline | tr '[:space:]' '\n' | sed -n "$REGEX" 2>/dev/null
 }
 
 grep_prop() {
@@ -153,7 +153,7 @@ grep_prop() {
 getvar() {
   local VARNAME=$1
   local VALUE=
-  VALUE=`grep_prop $VARNAME /.backup/.magisk /data/.magisk /cache/.magisk /system/.magisk`
+  VALUE=`grep_prop $VARNAME /sbin/.magisk/config /.backup/.magisk /data/.magisk /cache/.magisk`
   [ ! -z $VALUE ] && eval $VARNAME=\$VALUE
 }
 
@@ -306,9 +306,9 @@ check_data() {
 }
 
 setup_bb() {
-  if [ -x /sbin/.core/busybox/busybox ]; then
+  if [ -x $MAGISKTMP/busybox/busybox ]; then
     # Make sure this path is in the front
-    echo $PATH | grep -q '^/sbin/.core/busybox' || export PATH=/sbin/.core/busybox:$PATH
+    echo $PATH | grep -q "^$MAGISKTMP/busybox" || export PATH=$MAGISKTMP/busybox:$PATH
   elif [ -x $TMPDIR/bin/busybox ]; then
     # Make sure this path is in the front
     echo $PATH | grep -q "^$TMPDIR/bin" || export PATH=$TMPDIR/bin:$PATH
@@ -322,11 +322,11 @@ setup_bb() {
 }
 
 boot_actions() {
-  if [ ! -d /sbin/.core/mirror/bin ]; then
-    mkdir -p /sbin/.core/mirror/bin
-    mount -o bind $MAGISKBIN /sbin/.core/mirror/bin
+  if [ ! -d $MAGISKTMP/mirror/bin ]; then
+    mkdir -p $MAGISKTMP/mirror/bin
+    mount -o bind $MAGISKBIN $MAGISKTMP/mirror/bin
   fi
-  MAGISKBIN=/sbin/.core/mirror/bin
+  MAGISKBIN=$MAGISKTMP/mirror/bin
   setup_bb
 }
 
@@ -392,7 +392,7 @@ request_zip_size_check() {
 check_filesystem() {
   curSizeM=`wc -c < $1`
   curSizeM=$((curSizeM / 1048576))
-  local DF=`df -P $2 | grep $2`
+  local DF=`df -Pk $2 | grep $2`
   curUsedM=`echo $DF | awk '{ print int($3 / 1024) }'`
   curFreeM=`echo $DF | awk '{ print int($4 / 1024) }'`
 }
@@ -432,5 +432,15 @@ unmount_magisk_img() {
   if [ $curSizeM -gt $newSizeM ]; then
     ui_print "- Shrinking $IMG to ${newSizeM}M"
     $MAGISKBIN/magisk imgtool resize $IMG $newSizeM >&2
+  fi
+}
+
+find_manager_apk() {
+  APK=/data/adb/magisk.apk
+  [ -f $APK ] || APK=/data/magisk/magisk.apk
+  [ -f $APK ] || APK=/data/app/com.topjohnwu.magisk*/*.apk
+  if [ ! -f $APK ]; then
+    DBAPK=`magisk --sqlite "SELECT value FROM strings WHERE key='requester'" | cut -d= -f2`
+    [ -z "$DBAPK" ] || APK=/data/app/$DBAPK*/*.apk
   fi
 }

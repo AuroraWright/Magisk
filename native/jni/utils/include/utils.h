@@ -12,17 +12,26 @@
 #include <sys/stat.h>
 
 #ifdef __cplusplus
+
+#include "Vector.h"
+#include "CharArray.h"
+#include "cpputils.h"
+
+int file_to_vector(const char *filename, Vector<CharArray> &arr);
+char *strdup2(const char *s, size_t *size = nullptr);
+
+int exec_array(bool err, int *fd, void (*pre_exec)(void), const char **argv);
+int exec_command(bool err, int *fd, void (*cb)(void), const char *argv0, ...);
+
 extern "C" {
 #endif
-
-#include "vector.h"
 
 #define UID_SHELL  (get_shell_uid())
 #define UID_ROOT   0
 #define UID_SYSTEM (get_system_uid())
 #define UID_RADIO  (get_radio_uid())
 
-// xwrap.c
+// xwrap.cpp
 
 FILE *xfopen(const char *pathname, const char *mode);
 FILE *xfdopen(int fd, const char *mode);
@@ -78,21 +87,13 @@ ssize_t xsendfile(int out_fd, int in_fd, off_t *offset, size_t count);
 pid_t xfork();
 int xpoll(struct pollfd *fds, nfds_t nfds, int timeout);
 
-// misc.c
+// misc.cpp
 
 unsigned get_shell_uid();
 unsigned get_system_uid();
 unsigned get_radio_uid();
-int file_to_vector(const char* filename, struct vector *v);
-int vector_to_file(const char* filename, struct vector *v);
-ssize_t fdgets(char *buf, size_t size, int fd);
-int is_num(const char *s);
-int exec_array(int err, int *fd, void (*setenv)(struct vector *), char *const *argv);
-int exec_command(int err, int *fd, void (*setenv)(struct vector*), const char *argv0, ...);
-int exec_command_sync(char *const argv0, ...);
-int switch_mnt_ns(int pid);
+int exec_command_sync(const char *argv0, ...);
 int fork_dont_care();
-void wait_till_exists(const char *target);
 void gen_rand_str(char *buf, int len);
 int strend(const char *s1, const char *s2);
 
@@ -104,7 +105,7 @@ ssize_t __getline(char **lineptr, size_t *n, FILE *stream);
 ssize_t __getdelim(char **lineptr, size_t *n, int delim, FILE *stream);
 int __fsetxattr(int fd, const char *name, const void *value, size_t size, int flags);
 
-// file.c
+// file.cpp
 
 #define align(p, a)     (((p) + (a) - 1) / (a) * (a))
 #define align_off(p, a) (align(p, a) - (p))

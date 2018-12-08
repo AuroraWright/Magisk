@@ -32,25 +32,25 @@ LOCAL_C_INCLUDES := \
 	$(LIBUTILS)
 
 LOCAL_SRC_FILES := \
-	main.c \
-	img.c \
-	daemon/magisk.c \
-	daemon/daemon.c \
-	daemon/log_daemon.c \
-	daemon/bootstages.c \
-	daemon/socket.c \
-	daemon/db.c \
-	magiskhide/magiskhide.c \
-	magiskhide/proc_monitor.c \
-	magiskhide/hide_utils.c \
-	resetprop/persist_properties.c \
-	resetprop/resetprop.c \
+	misc/applets.cpp \
+	misc/img.cpp \
+	daemon/magisk.cpp \
+	daemon/daemon.cpp \
+	daemon/log_daemon.cpp \
+	daemon/bootstages.cpp \
+	daemon/socket.cpp \
+	daemon/db.cpp \
+	magiskhide/magiskhide.cpp \
+	magiskhide/proc_monitor.cpp \
+	magiskhide/hide_utils.cpp \
+	resetprop/persist_properties.cpp \
+	resetprop/resetprop.cpp \
 	resetprop/system_property_api.cpp \
 	resetprop/system_property_set.cpp \
-	su/su.c \
-	su/connect.c \
-	su/pts.c \
-	su/su_daemon.c
+	su/su.cpp \
+	su/connect.cpp \
+	su/pts.cpp \
+	su/su_daemon.cpp
 
 LOCAL_LDLIBS := -llog
 include $(BUILD_EXECUTABLE)
@@ -73,10 +73,10 @@ LOCAL_C_INCLUDES := \
 	$(LIBUTILS)
 
 LOCAL_SRC_FILES := \
-	init.c \
-	magiskpolicy/api.c \
-	magiskpolicy/magiskpolicy.c \
-	magiskpolicy/rules.c \
+	misc/init.cpp \
+	magiskpolicy/api.cpp \
+	magiskpolicy/magiskpolicy.cpp \
+	magiskpolicy/rules.cpp \
 	magiskpolicy/sepolicy.c
 
 LOCAL_LDFLAGS := -static
@@ -122,7 +122,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := b64xz
 LOCAL_STATIC_LIBRARIES := libxz
 LOCAL_C_INCLUDES := $(EXT_PATH)/include
-LOCAL_SRC_FILES := b64xz.c
+LOCAL_SRC_FILES := misc/b64xz.c
 LOCAL_LDFLAGS := -static
 include $(BUILD_EXECUTABLE)
 

@@ -3,10 +3,8 @@ package com.topjohnwu.magisk;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.fingerprint.FingerprintManager;
-import android.net.LocalSocketAddress;
 import android.os.Bundle;
 import android.os.CountDownTimer;
-import android.os.FileObserver;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.Window;
@@ -22,9 +20,7 @@ import com.topjohnwu.magisk.container.Policy;
 import com.topjohnwu.magisk.utils.FingerprintHelper;
 import com.topjohnwu.magisk.utils.SuConnector;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 
 import androidx.annotation.Nullable;
 import butterknife.BindView;
@@ -44,46 +40,6 @@ public class SuRequestActivity extends BaseActivity {
     private Policy policy;
     private CountDownTimer timer;
     private FingerprintHelper fingerprintHelper;
-
-    class SuConnectorV1 extends SuConnector {
-
-        SuConnectorV1(String name) throws IOException {
-            socket.connect(new LocalSocketAddress(name, LocalSocketAddress.Namespace.FILESYSTEM));
-            new FileObserver(name) {
-                @Override
-                public void onEvent(int fileEvent, String path) {
-                    if (fileEvent == FileObserver.DELETE_SELF) {
-                        finish();
-                    }
-                }
-            }.startWatching();
-        }
-
-        @Override
-        public void response() {
-            try (OutputStream out = getOutputStream()) {
-                out.write((policy.policy == Policy.ALLOW ? "socket:ALLOW" : "socket:DENY").getBytes());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    class SuConnectorV2 extends SuConnector {
-
-        SuConnectorV2(String name) throws IOException {
-            socket.connect(new LocalSocketAddress(name, LocalSocketAddress.Namespace.ABSTRACT));
-        }
-
-        @Override
-        public void response() {
-            try (DataOutputStream out = getOutputStream()) {
-                out.writeInt(policy.policy);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
 
     @Override
     public int getDarkTheme() {
@@ -119,9 +75,13 @@ public class SuRequestActivity extends BaseActivity {
         // Get policy
         Intent intent = getIntent();
         try {
-            connector =  intent.getIntExtra("version", 1) == 1 ?
-                    new SuConnectorV1(intent.getStringExtra("socket")) :
-                    new SuConnectorV2(intent.getStringExtra("socket"));
+            String socketName = intent.getStringExtra("socket");
+            connector = new SuConnector(socketName) {
+                @Override
+                protected void onResponse() throws IOException {
+                    out.writeInt(policy.policy);
+                }
+            };
             Bundle bundle = connector.readSocketInput();
             int uid = Integer.parseInt(bundle.getString("uid"));
             policy = mm.mDB.getPolicy(uid);
@@ -135,7 +95,7 @@ public class SuRequestActivity extends BaseActivity {
         }
 
         // Never allow com.topjohnwu.magisk (could be malware)
-        if (TextUtils.equals(policy.packageName, Const.ORIG_PKG_NAME)) {
+        if (TextUtils.equals(policy.packageName, BuildConfig.APPLICATION_ID)) {
             finish();
             return;
         }
@@ -181,9 +141,9 @@ public class SuRequestActivity extends BaseActivity {
             }
         };
 
-        boolean useFingerprint = Data.suFingerprint && FingerprintHelper.canUseFingerprint();
+        boolean useFP = FingerprintHelper.useFingerPrint();
 
-        if (useFingerprint) {
+        if (useFP) {
             try {
                 fingerprintHelper = new FingerprintHelper() {
                     @Override
@@ -209,11 +169,11 @@ public class SuRequestActivity extends BaseActivity {
                 fingerprintHelper.authenticate();
             } catch (Exception e) {
                 e.printStackTrace();
-                useFingerprint = false;
+                useFP = false;
             }
         }
 
-        if (!useFingerprint) {
+        if (!useFP) {
             grant_btn.setOnClickListener(v -> {
                 handleAction(Policy.ALLOW);
                 timer.cancel();
@@ -221,8 +181,8 @@ public class SuRequestActivity extends BaseActivity {
             grant_btn.requestFocus();
         }
 
-        grant_btn.setVisibility(useFingerprint ? View.GONE : View.VISIBLE);
-        fingerprintImg.setVisibility(useFingerprint ? View.VISIBLE : View.GONE);
+        grant_btn.setVisibility(useFP ? View.GONE : View.VISIBLE);
+        fingerprintImg.setVisibility(useFP ? View.VISIBLE : View.GONE);
 
         deny_btn.setOnClickListener(v -> {
             handleAction(Policy.DENY);
@@ -252,7 +212,7 @@ public class SuRequestActivity extends BaseActivity {
         policy.policy = action;
         if (time >= 0) {
             policy.until = (time == 0) ? 0 : (System.currentTimeMillis() / 1000 + time * 60);
-            mm.mDB.addPolicy(policy);
+            mm.mDB.updatePolicy(policy);
         }
         handleAction();
     }

@@ -145,8 +145,8 @@ int boot_img::parse_image(const char * image) {
 				flags |= MTK_KERNEL;
 				k_hdr = new mtk_hdr();
 				memcpy(k_hdr, kernel, sizeof(mtk_hdr));
-				fprintf(stderr, "KERNEL [%u]\n", k_hdr->size);
-				fprintf(stderr, "NAME [%s]\n", k_hdr->name);
+				fprintf(stderr, "KERNEL          [%u]\n", k_hdr->size);
+				fprintf(stderr, "NAME            [%s]\n", k_hdr->name);
 				kernel += 512;
 				hdr->kernel_size -= 512;
 				k_fmt = check_fmt(kernel, hdr->kernel_size);
@@ -156,8 +156,8 @@ int boot_img::parse_image(const char * image) {
 				flags |= MTK_RAMDISK;
 				r_hdr = new mtk_hdr();
 				memcpy(r_hdr, ramdisk, sizeof(mtk_hdr));
-				fprintf(stderr, "RAMDISK [%u]\n", r_hdr->size);
-				fprintf(stderr, "NAME [%s]\n", r_hdr->name);
+				fprintf(stderr, "RAMDISK         [%u]\n", r_hdr->size);
+				fprintf(stderr, "NAME            [%s]\n", r_hdr->name);
 				ramdisk += 512;
 				hdr->ramdisk_size -= 512;
 				r_fmt = check_fmt(ramdisk, hdr->ramdisk_size);
@@ -165,9 +165,9 @@ int boot_img::parse_image(const char * image) {
 
 			char fmt[16];
 			get_fmt_name(k_fmt, fmt);
-			fprintf(stderr, "KERNEL_FMT\t[%s]\n", fmt);
+			fprintf(stderr, "KERNEL_FMT      [%s]\n", fmt);
 			get_fmt_name(r_fmt, fmt);
-			fprintf(stderr, "RAMDISK_FMT\t[%s]\n", fmt);
+			fprintf(stderr, "RAMDISK_FMT     [%s]\n", fmt);
 
 			return flags & CHROMEOS_FLAG ? CHROMEOS_RET : 0;
 		default:
@@ -210,18 +210,18 @@ void boot_img::find_dtb() {
 		dtb = kernel + i;
 		dt_size = hdr->kernel_size - i;
 		hdr->kernel_size = i;
-		fprintf(stderr, "DTB\t\t[%u]\n", dt_size);
+		fprintf(stderr, "DTB             [%u]\n", dt_size);
 		break;
 	}
 }
 
 void boot_img::print_hdr() {
-	fprintf(stderr, "HEADER_VER\t[%u]\n", header_version());
-	fprintf(stderr, "KERNEL_SZ\t[%u]\n", hdr->kernel_size);
-	fprintf(stderr, "RAMDISK_SZ\t[%u]\n", hdr->ramdisk_size);
-	fprintf(stderr, "SECOND_SZ\t[%u]\n", hdr->second_size);
-	fprintf(stderr, "EXTRA_SZ\t[%u]\n", extra_size());
-	fprintf(stderr, "RECOV_DTBO_SZ\t[%u]\n", recovery_dtbo_size());
+	fprintf(stderr, "HEADER_VER      [%u]\n", header_version());
+	fprintf(stderr, "KERNEL_SZ       [%u]\n", hdr->kernel_size);
+	fprintf(stderr, "RAMDISK_SZ      [%u]\n", hdr->ramdisk_size);
+	fprintf(stderr, "SECOND_SZ       [%u]\n", hdr->second_size);
+	fprintf(stderr, "EXTRA_SZ        [%u]\n", extra_size());
+	fprintf(stderr, "RECOV_DTBO_SZ   [%u]\n", recovery_dtbo_size());
 
 	uint32_t ver = os_version();
 	if (ver) {
@@ -233,24 +233,24 @@ void boot_img::print_hdr() {
 		a = (version >> 14) & 0x7f;
 		b = (version >> 7) & 0x7f;
 		c = version & 0x7f;
-		fprintf(stderr, "OS_VERSION\t[%d.%d.%d]\n", a, b, c);
+		fprintf(stderr, "OS_VERSION      [%d.%d.%d]\n", a, b, c);
 
 		y = (patch_level >> 4) + 2000;
 		m = patch_level & 0xf;
-		fprintf(stderr, "PATCH_LEVEL\t[%d-%02d]\n", y, m);
+		fprintf(stderr, "PATCH_LEVEL     [%d-%02d]\n", y, m);
 	}
 
-	fprintf(stderr, "PAGESIZE\t[%u]\n", page_size());
-	fprintf(stderr, "NAME\t\t[%s]\n", name());
-	fprintf(stderr, "CMDLINE\t\t[%s]\n", cmdline());
-	fprintf(stderr, "CHECKSUM\t[");
+	fprintf(stderr, "PAGESIZE        [%u]\n", page_size());
+	fprintf(stderr, "NAME            [%s]\n", name());
+	fprintf(stderr, "CMDLINE         [%.512s%.1024s]\n", cmdline(), extra_cmdline());
+	fprintf(stderr, "CHECKSUM        [");
 	for (int i = 0; id()[i]; ++i)
 		fprintf(stderr, "%02x", id()[i]);
 	fprintf(stderr, "]\n");
 }
 
 int unpack(const char *image) {
-	boot_img boot = boot_img();
+	boot_img boot {};
 	int ret = boot.parse_image(image);
 	int fd;
 
@@ -288,7 +288,7 @@ int unpack(const char *image) {
 
 #define file_align() write_zero(fd, align_off(lseek(fd, 0, SEEK_CUR) - header_off, boot.page_size()))
 void repack(const char* orig_image, const char* out_image) {
-	boot_img boot = boot_img();
+	boot_img boot {};
 
 	off_t header_off, kernel_off, ramdisk_off, second_off, extra_off;
 
@@ -439,6 +439,10 @@ void repack(const char* orig_image, const char* out_image) {
 
 	// Print new image info
 	boot.print_hdr();
+
+	// Try to fix the header
+	if (boot.header_version() && boot.header_size() == 0)
+		boot.header_size(sizeof(boot_img_hdr));
 
 	// Main header
 	memcpy(boot.map_addr + header_off, boot.hdr, boot.hdr_size());

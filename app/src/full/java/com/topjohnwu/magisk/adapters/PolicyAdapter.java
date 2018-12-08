@@ -10,13 +10,12 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import com.google.android.material.snackbar.Snackbar;
-import com.topjohnwu.magisk.Data;
 import com.topjohnwu.magisk.R;
 import com.topjohnwu.magisk.components.CustomAlertDialog;
 import com.topjohnwu.magisk.components.ExpandableView;
 import com.topjohnwu.magisk.components.SnackbarMaker;
 import com.topjohnwu.magisk.container.Policy;
-import com.topjohnwu.magisk.database.MagiskDatabaseHelper;
+import com.topjohnwu.magisk.database.MagiskDB;
 import com.topjohnwu.magisk.utils.FingerprintHelper;
 
 import java.util.HashSet;
@@ -30,11 +29,11 @@ import butterknife.BindView;
 public class PolicyAdapter extends RecyclerView.Adapter<PolicyAdapter.ViewHolder> {
 
     private List<Policy> policyList;
-    private MagiskDatabaseHelper dbHelper;
+    private MagiskDB dbHelper;
     private PackageManager pm;
     private Set<Policy> expandList = new HashSet<>();
 
-    public PolicyAdapter(List<Policy> list, MagiskDatabaseHelper db, PackageManager pm) {
+    public PolicyAdapter(List<Policy> list, MagiskDB db, PackageManager pm) {
         policyList = list;
         dbHelper = db;
         this.pm = pm;
@@ -86,7 +85,7 @@ public class PolicyAdapter extends RecyclerView.Adapter<PolicyAdapter.ViewHolder
                     dbHelper.updatePolicy(policy);
                 }
             };
-            if (Data.suFingerprint) {
+            if (FingerprintHelper.useFingerPrint()) {
                 holder.masterSwitch.setChecked(!isChecked);
                 FingerprintHelper.showAuthDialog((Activity) v.getContext(), () -> {
                     holder.masterSwitch.setChecked(isChecked);
