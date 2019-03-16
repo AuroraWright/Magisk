@@ -595,6 +595,13 @@ void post_fs_data(int client) {
 	// Unlock all blocks for rw
 	unlock_blocks();
 
+	bool vold_override = false;
+	if (access("/sbin/vold", F_OK) == 0)
+		vold_override = true;
+
+	if (vold_override)
+		umount2("/system/bin/vold", MNT_DETACH);
+
 	if (access(SECURE_DIR, F_OK) != 0) {
 		/* If the folder is not automatically created by the system,
 		 * do NOT proceed further. Manual creation of the folder
@@ -703,6 +710,12 @@ void post_fs_data(int client) {
 	// Cleanup memory
 	delete sys_root;
 	delete ven_root;
+
+	if (vold_override)
+	{
+		umount2("/system/bin/vold", MNT_DETACH);
+		bind_mount("/sbin/vold", "/system/bin/vold");
+	}
 
 	core_only();
 }

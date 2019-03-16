@@ -140,12 +140,16 @@ private:
 	cmdline cmd{};
 	raw_data init{};
 	raw_data config{};
+	raw_data vold{};
+	raw_data custom_sepolicy{};
 	int root = -1;
 	bool mnt_system = false;
 	bool mnt_vendor = false;
 	bool mnt_product = false;
 	bool mnt_odm = false;
 	bool kirin = false;
+	bool vold_override = false;
+	bool use_custom_sepolicy = false;
 	char **argv;
 
 	void load_kernel_info();
@@ -357,7 +361,31 @@ void MagiskInit::early_mount() {
 }
 
 void MagiskInit::setup_rootfs() {
+	// Handle ramdisk overlays
+	int fd = open("/overlay", O_RDONLY | O_CLOEXEC);
+	if (fd >= 0) {
+		mv_dir(fd, root);
+		close(fd);
+		rmdir("/overlay");
+	}
+
 	bool patch_init = patch_sepolicy();
+
+	if (access("/sbin/vold", F_OK) == 0)
+		vold_override = true;
+	if (access(CUSTOM_CIL, F_OK) == 0)
+		use_custom_sepolicy = true;
+
+	if (vold_override)
+	{
+		full_read("/sbin/vold", &vold.buf, &vold.sz);
+		unlink("/sbin/vold");
+	}
+	if (use_custom_sepolicy)
+	{
+		full_read(CUSTOM_CIL, &custom_sepolicy.buf, &custom_sepolicy.sz);
+		unlink(CUSTOM_CIL);
+	}
 
 	if (cmd.system_as_root) {
 		// Clone rootfs except /system
@@ -392,14 +420,6 @@ void MagiskInit::setup_rootfs() {
 			}
 		}
 		munmap(addr, size);
-	}
-
-	// Handle ramdisk overlays
-	int fd = open("/overlay", O_RDONLY | O_CLOEXEC);
-	if (fd >= 0) {
-		mv_dir(fd, root);
-		close(fd);
-		rmdir("/overlay");
 	}
 
 	// Patch init.rc
@@ -527,6 +547,22 @@ void MagiskInit::setup_overlay() {
 	chmod("/sbin", 0755);
 	setfilecon("/sbin", "u:object_r:rootfs:s0");
 
+	if (vold_override)
+	{
+		fd = xopen("/sbin/vold", O_WRONLY | O_CREAT, 0755);
+		write(fd, vold.buf, vold.sz);
+		close(fd);
+		setfilecon("/sbin/vold", "u:object_r:vold_exec:s0");
+	}
+
+	if (use_custom_sepolicy)
+	{
+		fd = xopen(CUSTOM_CIL, O_WRONLY | O_CREAT, 0644);
+		write(fd, custom_sepolicy.buf, custom_sepolicy.sz);
+		close(fd);
+		setfilecon(CUSTOM_CIL, "u:object_r:sepolicy_file:s0");
+	}
+
 	// Dump binaries
 	mkdir(MAGISKTMP, 0755);
 	fd = xopen(MAGISKTMP "/config", O_WRONLY | O_CREAT, 0000);
@@ -562,6 +598,9 @@ void MagiskInit::setup_overlay() {
 	}
 	closedir(dir);
 	close(fd);
+
+	if (vold_override)
+		xmount("/sbin/vold", "/system/bin/vold", nullptr, MS_BIND, nullptr);
 
 	close(xopen(EARLYINITDONE, O_RDONLY | O_CREAT, 0));
 	exit(0);

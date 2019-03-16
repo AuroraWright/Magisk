@@ -87,7 +87,9 @@ static bool check_precompiled(const char *precompiled) {
 int load_split_cil() {
 	const char *odm_pre = ODM_POLICY_DIR "precompiled_sepolicy";
 	const char *vend_pre = VEND_POLICY_DIR "precompiled_sepolicy";
-	if (access(odm_pre, R_OK) == 0 && check_precompiled(odm_pre))
+	if (access(CUSTOM_CIL, R_OK) == 0)
+		return compile_split_cil();
+	else if (access(odm_pre, R_OK) == 0 && check_precompiled(odm_pre))
 		return load_policydb(odm_pre);
 	else if (access(vend_pre, R_OK) == 0 && check_precompiled(vend_pre))
 		return load_policydb(vend_pre);
@@ -134,6 +136,11 @@ int compile_split_cil() {
 
 	sprintf(path, PLAT_POLICY_DIR "mapping/%s.cil", plat_ver);
 	load_cil(db, path);
+
+	// custom
+	cil_file = CUSTOM_CIL;
+	if (access(cil_file, R_OK) == 0)
+		load_cil(db, cil_file);
 
 	// product
 	sprintf(path, PROD_POLICY_DIR "mapping/%s.cil", plat_ver);

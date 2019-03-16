@@ -14,6 +14,7 @@
 #define PROD_POLICY_DIR     "/product/etc/selinux/"
 #define ODM_POLICY_DIR      "/odm/etc/selinux/"
 #define SPLIT_PLAT_CIL      PLAT_POLICY_DIR "plat_sepolicy.cil"
+#define CUSTOM_CIL			"/sbin/custom_sepolicy.cil"
 
 #define SEPOL_PROC_DOMAIN   "magisk"
 #define SEPOL_FILE_DOMAIN   "magisk_file"

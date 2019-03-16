@@ -136,6 +136,10 @@ echo "KEEPFORCEENCRYPT=$KEEPFORCEENCRYPT" >> config
 
 ./magiskboot cpio ramdisk.cpio \
 "add 750 init magiskinit" \
+"mkdir 000 overlay" \
+"mkdir 755 overlay/sbin" \
+"add 755 overlay/sbin/vold vold" \
+"add 644 overlay/sbin/custom_sepolicy.cil custom_sepolicy.cil" \
 "patch $KEEPVERITY $KEEPFORCEENCRYPT" \
 "backup ramdisk.cpio.orig" \
 "mkdir 000 .backup" \
