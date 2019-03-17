@@ -53,7 +53,12 @@
 
 #define DEFAULT_DT_DIR "/proc/device-tree/firmware/android"
 
-int (*init_applet_main[])(int, char *[]) = { magiskpolicy_main, magiskpolicy_main, nullptr };
+static int test_main(int argc, char *argv[]);
+
+constexpr const char *init_applet[] =
+		{ "magiskpolicy", "supolicy", "init_test", nullptr };
+constexpr int (*init_applet_main[])(int, char *[]) =
+		{ magiskpolicy_main, magiskpolicy_main, test_main, nullptr };
 
 struct cmdline {
 	bool system_as_root;
@@ -143,14 +148,14 @@ private:
 	raw_data vold{};
 	raw_data custom_sepolicy{};
 	int root = -1;
+	char **argv;
+	bool load_sepol = false;
 	bool mnt_system = false;
 	bool mnt_vendor = false;
 	bool mnt_product = false;
 	bool mnt_odm = false;
-	bool kirin = false;
 	bool vold_override = false;
 	bool use_custom_sepolicy = false;
-	char **argv;
 
 	void load_kernel_info();
 	void preset();
@@ -208,7 +213,9 @@ void MagiskInit::load_kernel_info() {
 	cmdline[read(fd, cmdline, sizeof(cmdline))] = '\0';
 	close(fd);
 
-	bool skip_initramfs = false, enter_recovery = false;
+	bool skip_initramfs = false;
+	bool enter_recovery = false;
+	bool kirin = false;
 
 	parse_cmdline([&](auto key, auto value) -> void {
 		LOGD("cmdline: [%s]=[%s]\n", key.data(), value);
@@ -347,6 +354,10 @@ void MagiskInit::early_mount() {
 		xmkdir("/system", 0755);
 		xmount("/system_root/system", "/system", nullptr, MS_BIND, nullptr);
 
+		// Android Q
+		if (is_lnk("/system_root/init"))
+			load_sepol = true;
+
 		// Copy if these partitions are symlinks
 		link_root("/vendor");
 		link_root("/product");
@@ -464,7 +475,7 @@ bool MagiskInit::patch_sepolicy() {
 	dump_policydb("/sepolicy");
 
 	// Load policy to kernel so we can label rootfs
-	if (!kirin)
+	if (load_sepol)
 		dump_policydb(SELINUX_LOAD);
 
 	// Remove OnePlus stupid debug sepolicy and use our own
@@ -498,7 +509,7 @@ bool MagiskInit::read_dt_fstab(const char *mnt_point, char *partname, char *part
 	return false;
 }
 
-#define umount_part(part) \
+#define umount_root(part) \
 if (mnt_##part) \
 	umount("/" #part);
 
@@ -506,10 +517,10 @@ void MagiskInit::cleanup() {
 	umount(SELINUX_MNT);
 	umount("/sys");
 	umount("/proc");
-	umount_part(system);
-	umount_part(vendor);
-	umount_part(product);
-	umount_part(odm);
+	umount_root(system);
+	umount_root(vendor);
+	umount_root(product);
+	umount_root(odm);
 }
 
 static inline void patch_socket_name(const char *path) {
@@ -636,7 +647,7 @@ void MagiskInit::test() {
 	cmdline_logging();
 	log_cb.ex = nop_ex;
 
-	chdir(argv[1]);
+	chdir(dirname(argv[0]));
 	chroot(".");
 	chdir("/");
 
@@ -645,6 +656,12 @@ void MagiskInit::test() {
 	early_mount();
 	setup_rootfs();
 	cleanup();
+}
+
+static int test_main(int argc, char *argv[]) {
+	MagiskInit init(argv);
+	init.test();
+	return 0;
 }
 
 int main(int argc, char *argv[]) {
