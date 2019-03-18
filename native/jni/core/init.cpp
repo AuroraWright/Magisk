@@ -358,6 +358,10 @@ void MagiskInit::early_mount() {
 		if (is_lnk("/system_root/init"))
 			load_sepol = true;
 
+		// System-as-root with monolithic sepolicy
+		if (access("/system_root/sepolicy", F_OK) == 0)
+			cp_afc("/system_root/sepolicy", "/sepolicy");
+
 		// Copy if these partitions are symlinks
 		link_root("/vendor");
 		link_root("/product");
@@ -407,6 +411,9 @@ void MagiskInit::setup_rootfs() {
 		close(system_root);
 		excl_list = nullptr;
 	}
+
+	// Override /sepolicy if exist
+	rename("/magisk_sepolicy", "/sepolicy");
 
 	if (patch_init) {
 		constexpr char SYSTEM_INIT[] = "/system/bin/init";
@@ -472,7 +479,7 @@ bool MagiskInit::patch_sepolicy() {
 
 	sepol_magisk_rules();
 	sepol_allow(SEPOL_PROC_DOMAIN, ALL, ALL, ALL);
-	dump_policydb("/sepolicy");
+	dump_policydb("/magisk_sepolicy");
 
 	// Load policy to kernel so we can label rootfs
 	if (load_sepol)
@@ -481,7 +488,7 @@ bool MagiskInit::patch_sepolicy() {
 	// Remove OnePlus stupid debug sepolicy and use our own
 	if (access("/sepolicy_debug", F_OK) == 0) {
 		unlink("/sepolicy_debug");
-		link("/sepolicy", "/sepolicy_debug");
+		link("/magisk_sepolicy", "/sepolicy_debug");
 	}
 
 	// Enable selinux functions
