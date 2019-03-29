@@ -25,12 +25,11 @@ import com.topjohnwu.magisk.Config;
 import com.topjohnwu.magisk.R;
 import com.topjohnwu.magisk.uicomponents.ArrowExpandable;
 import com.topjohnwu.magisk.uicomponents.Expandable;
-import com.topjohnwu.magisk.utils.Topic;
+import com.topjohnwu.magisk.utils.Event;
 import com.topjohnwu.magisk.utils.Utils;
 import com.topjohnwu.superuser.Shell;
 import com.topjohnwu.superuser.internal.UiThreadHandler;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -38,7 +37,9 @@ import java.util.Set;
 
 import butterknife.BindView;
 import java9.util.Comparators;
+import java9.util.Lists;
 import java9.util.Objects;
+import java9.util.Sets;
 import java9.util.stream.Collectors;
 import java9.util.stream.Stream;
 import java9.util.stream.StreamSupport;
@@ -48,9 +49,10 @@ public class ApplicationAdapter extends SectionedAdapter
 
     private static final String SAFETYNET_PROCESS = "com.google.android.gms.unstable";
     private static final String GMS_PACKAGE = "com.google.android.gms";
+    private static boolean old_hide = false;
 
     /* A list of apps that should not be shown as hide-able */
-    private static final List<String> HIDE_BLACKLIST = Arrays.asList(
+    private static final List<String> HIDE_BLACKLIST = Lists.of(
             App.self.getPackageName(),
             "android",
             "com.android.chrome",
@@ -60,8 +62,7 @@ public class ApplicationAdapter extends SectionedAdapter
             "com.android.webview",
             "com.google.android.webview"
     );
-    private static final List<String> DEFAULT_HIDELIST = Arrays.asList(
-            GMS_PACKAGE,
+    private static final List<String> DEFAULT_HIDELIST = Lists.of(
             SAFETYNET_PROCESS
     );
 
@@ -243,21 +244,25 @@ public class ApplicationAdapter extends SectionedAdapter
         fullList = StreamSupport.stream(pm.getInstalledApplications(0))
                 .filter(info -> !HIDE_BLACKLIST.contains(info.packageName) && info.enabled)
                 .map(info -> {
-                    Set<String> set = new ArraySet<>();
-                    PackageInfo pkg = getPackageInfo(info.packageName);
-                    if (pkg != null) {
-                        addProcesses(set, pkg.activities);
-                        addProcesses(set, pkg.services);
-                        addProcesses(set, pkg.receivers);
-                        addProcesses(set, pkg.providers);
+                    if (old_hide) {
+                        return new HideAppInfo(info, Sets.of(info.packageName));
+                    } else {
+                        Set<String> set = new ArraySet<>();
+                        PackageInfo pkg = getPackageInfo(info.packageName);
+                        if (pkg != null) {
+                            addProcesses(set, pkg.activities);
+                            addProcesses(set, pkg.services);
+                            addProcesses(set, pkg.receivers);
+                            addProcesses(set, pkg.providers);
+                        }
+                        if (set.isEmpty())
+                            return null;
+                        return new HideAppInfo(info, set);
                     }
-                    if (set.isEmpty())
-                        return null;
-                    return new HideAppInfo(info, set);
                 }).filter(Objects::nonNull).sorted()
                 .collect(Collectors.toList());
 
-        Topic.publish(false, Topic.MAGISK_HIDE_DONE);
+        Event.trigger(false, Event.MAGISK_HIDE_DONE);
     }
 
     // True if not system app or user already hidden it
@@ -368,13 +373,14 @@ public class ApplicationAdapter extends SectionedAdapter
         String process;
 
         HideTarget(String line) {
-            String[] split = line.split("\\|");
+            String[] split = line.split("\\|", 2);
             pkg = split[0];
-            if (split.length >= 2) {
+            if (split.length == 2) {
                 process = split[1];
             } else {
                 // Backwards compatibility
-                process = pkg.equals(GMS_PACKAGE) ? SAFETYNET_PROCESS : pkg;
+                old_hide = true;
+                process = pkg;
             }
         }
     }
